@@ -1,1 +1,51 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Items	= ReplicatedStorage:WaitForChild("Items")
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local DropEvent = game:GetService("ServerScriptService"):WaitForChild("DropScript"):WaitForChild("Drop")
+local boosters = {"Health Pack", "Shield Potion"}
+local numofBoosters = #boosters
+local itemAmount = 2
+local regentime = 120
+
+local function openChest(player, chest)
+	chest.Key.ProximityPrompt.Enabled = false
+	Remotes.Chest:FireAllClients(false, chest)
+
+	local position = chest.Bottom.Spawn.Position
+	for i = 1, itemAmount do
+		local item = Remotes.Spawn:Invoke()
+		local base = Items[item]
+		local config = require(base.Config)
+
+		DropEvent:Fire(item, position, nil, regentime)
+		
+		-- spawn ammo
+		if config.Type == "Gun" then
+			local amount	= math.random(config.Magazine * 2, config.Magazine * 5)
+			local angle		= math.rad(math.random(0, 360))
+			DropEvent:Fire(config.Size .. " Ammo", position, amount, regentime)
+		end
+	end
+
+	DropEvent:Fire(boosters[math.random(#boosters)], position, nil, regentime)
+
+	chest.Closed.CanCollide = false
+	chest.Closed.Transparency = 1
+	chest.Open.CanCollide = true
+	chest.Open.Transparency = 0
+
+	coroutine.wrap(function()
+		wait(regentime)
+		chest.Open.CanCollide = false
+		chest.Open.Transparency = 1	
+		chest.Closed.CanCollide = true
+		chest.Closed.Transparency = 0
+		
+		Remotes.Chest:FireAllClients(true, chest)
+		chest.Key.ProximityPrompt.Enabled = true
+
+	end)()
+end
+
+Remotes:WaitForChild("Chest").OnServerEvent:Connect(openChest)
